@@ -43,7 +43,10 @@ if __name__ == '__main__':
         default_favs = config['default_search'].get('min_favs', 0)
         default_ratings = config['default_search'].get('ratings', ['s'])
 
-        blacklist = [remote.get_tag_alias(tag.lower(), session) for tag in config['blacklist']]
+        if config['blacklist']:
+            blacklist = [remote.get_tag_alias(tag.lower(), session) for tag in config['blacklist']]
+        else:
+            blacklist = []
 
         for key, value in config['searches'].items():
             # Get the tags that will be searched for. Tags are aliased to their acknowledged names.
