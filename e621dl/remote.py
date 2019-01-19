@@ -1,9 +1,11 @@
 # Internal Imports
 import os
+import re
 from time import sleep
 from timeit import default_timer
 from functools import lru_cache
 from shutil import copyfileobj
+from urllib.parse import urlparse
 
 # Personal Imports
 from e621dl import constants
@@ -34,6 +36,80 @@ def requests_retry_session(
     session.mount('https://', adapter)
     return session
 
+def check_cloudflare(response):
+    if response.status_code != 403:
+        return False
+    elif not response.text.lower().find("cloudflare"):
+        return False
+    else:
+        return True
+    
+def solve_captcha(session, response):
+    text = response.text
+    url = response.url
+    splitted=urlparse(url)
+    baseurl=f"{splitted.scheme}://{splitted.netloc}/"
+    
+    # Zalgo. He comes.
+    # To be fair, you can use regexps to search in
+    # an html with a know structure.
+    hidden_input_re = re.compile('<input type="hidden" name="(.*?) value="(.*?)"')
+    textarea_re = re.compile('<textarea .*? name="(.*?)"')
+    form_re = re.compile('<form .*? action="(.*?)" method="(.*?)"')
+    iframe_re = re.compile('<iframe src="(.*?)"')
+    
+    try:
+        hidden_name, hidden_value = hidden_input_re.search(text).groups()
+    except:
+        print("unexpected absense of hidden input")
+        return False
+    
+    try:
+        textarea_name, = textarea_re.search(text).groups()
+    except:
+        print("unexpected absense of textarea")
+        return False
+        
+    try:
+        form_url, form_method = form_re.search(text).groups()
+    except:
+        print("unexpected absense of form")
+        return False
+    
+    try:
+        iframe_url, = iframe_re.search(text).groups()
+    except:
+        print("unexpected absense of iframe")
+        return False
+    
+    form_method = form_method.lower()
+    
+    print("Install Referer Control extension in your browser, then")
+    print("set up (temporarily) referer for 'https://www.google.com/recaptcha/*'")
+    print("to 'https://e621.net', then")
+    print("open this link in the browser:")
+    print(iframe_url)
+    print("after successful recaptcha solving")
+    print("copy text field content here:")
+    textarea_value=input()
+    
+    if form_url[0] == "/":
+        form_url = baseurl+form_url
+    
+    payload={
+                hidden_name:hidden_value,
+                textarea_name:textarea_value,
+            }
+    
+    if form_method == "get":
+        response = session.get(form_url, params=payload)
+    elif form_method == "post":
+        response = session.post(form_url, data=payload)
+    else:
+        print("unknown method")
+    
+    return check_cloudflare(session, response)
+
 def delayed_post(url, payload, session):
     # Take time before and after getting the requests response.
     start = default_timer()
@@ -46,6 +122,9 @@ def delayed_post(url, payload, session):
         if elapsed < 1:
             sleep(1 - elapsed)
 
+        if check_cloudflare(response) and solve_captcha(session, response):
+            return delayed_post(url, payload, session)
+            
         return response
 
 def get_github_release(session):
