@@ -108,7 +108,7 @@ def solve_captcha(session, response):
     else:
         print("unknown method")
     
-    return check_cloudflare(session, response)
+    return not check_cloudflare(response) #means we solve a captcha
 
 def delayed_post(url, payload, session):
     # Take time before and after getting the requests response.
