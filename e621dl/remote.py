@@ -48,12 +48,12 @@ def solve_captcha(session, response):
     text = response.text
     url = response.url
     splitted=urlparse(url)
-    baseurl=f"{splitted.scheme}://{splitted.netloc}/"
+    baseurl=f"{splitted.scheme}://{splitted.netloc}"
     
     # Zalgo. He comes.
     # To be fair, you can use regexps to search in
     # an html with a know structure.
-    hidden_input_re = re.compile('<input type="hidden" name="(.*?) value="(.*?)"')
+    hidden_input_re = re.compile('<input type="hidden" name="(.*?)" value="(.*?)"')
     textarea_re = re.compile('<textarea .*? name="(.*?)"')
     form_re = re.compile('<form .*? action="(.*?)" method="(.*?)"')
     iframe_re = re.compile('<iframe src="(.*?)"')
