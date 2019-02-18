@@ -193,23 +193,33 @@ def get_tag_alias(user_tag, session):
     url = 'https://e621.net/tag_alias/index.json'
     payload = {'approved': 'true', 'query': user_tag}
 
-    with delayed_post(url, payload, session) as response:
-        response.raise_for_status()
-        results = response.json()
+    pagenum = 1
+    def alias_chunk():
+        url = 'https://e621.net/tag_alias/index.json'
+        payload = {'approved': 'true', 'query': user_tag, 'page': pagenum}
 
-    for tag in results:
-        if user_tag == tag['name']:
-            url = 'https://e621.net/tag/show.json'
-            payload = {'id': tag['alias_id']}
+        with delayed_post(url, payload, session) as response:
+            response.raise_for_status()
+            results = response.json()
+        return results
+    
+    
+    results = alias_chunk()
+    while results:
+        for tag in results:
+            if user_tag == tag['name']:
+                url = 'https://e621.net/tag/show.json'
+                payload = {'id': tag['alias_id']}
 
-            with delayed_post(url, payload, session) as response:
-                response.raise_for_status()
-                results = response.json()
+                with delayed_post(url, payload, session) as response:
+                    response.raise_for_status()
+                    results = response.json()
 
-                print(f"[✓] The tag {prefix}{user_tag} was changed to {prefix}{results['name']}.")
+                    print(f"[✓] The tag {prefix}{user_tag} was changed to {prefix}{results['name']}.")
 
-                return f"{prefix}{results['name']}"
-
+                    return f"{prefix}{results['name']}"
+        pagenum += 1
+        results = alias_chunk()
     print(f"[!] The tag {prefix}{user_tag} is spelled incorrectly or does not exist.")
     return ''
 
